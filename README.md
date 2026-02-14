@@ -112,3 +112,7 @@ Run all beauty iterations side by side (live):
 ```text
 http://127.0.0.1:5173/timeline.html
 ```
+
+Optional:
+- add `?renderScale=1|1.5|2|3` to control internal rendering resolution
+- or use the `Render Scale` selector at the top of `timeline.html`

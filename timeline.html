@@ -49,6 +49,33 @@
         font-size: 0.9rem;
       }
 
+      .toolbar {
+        display: flex;
+        align-items: center;
+        gap: 0.8rem;
+        margin-bottom: 0.95rem;
+        padding: 0.6rem 0.7rem;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 0.55rem;
+        background: rgba(10, 20, 30, 0.45);
+      }
+
+      .toolbar label {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.76rem;
+        color: var(--muted);
+      }
+
+      select {
+        border: 0;
+        border-radius: 0.4rem;
+        padding: 0.35rem 0.5rem;
+        background: #1d2d42;
+        color: var(--ink);
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.76rem;
+      }
+
       .grid {
         display: grid;
         grid-template-columns: repeat(5, minmax(280px, 1fr));
@@ -77,6 +104,25 @@
         background: #000;
       }
 
+      .rationale {
+        margin: 0;
+        padding: 0.58rem 0.7rem 0.72rem;
+        color: #bdd0e6;
+        font-size: 0.78rem;
+        line-height: 1.32;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .hint {
+        margin-left: auto;
+        color: #b7cce3;
+        font-size: 0.78rem;
+      }
+
+      .hint code {
+        font-family: 'JetBrains Mono', monospace;
+      }
+
       @media (max-width: 1450px) {
         .grid {
           grid-template-columns: repeat(3, minmax(280px, 1fr));
@@ -86,6 +132,17 @@
       @media (max-width: 980px) {
         .grid {
           grid-template-columns: repeat(2, minmax(240px, 1fr));
+        }
+      }
+
+      @media (max-width: 760px) {
+        .toolbar {
+          flex-wrap: wrap;
+        }
+
+        .hint {
+          margin-left: 0;
+          width: 100%;
         }
       }
 
@@ -101,18 +158,77 @@
       <h1>Beautiful Shader Timeline (v01 → v10)</h1>
       <p>All iterations run live side by side in chronological order.</p>
 
-      <section class="grid">
-        <article class="card"><div class="label">v01</div><iframe src="/?embed=1&shaderFile=shaders/iterations/beautiful_v01.glsl" title="Shader v01"></iframe></article>
-        <article class="card"><div class="label">v02</div><iframe src="/?embed=1&shaderFile=shaders/iterations/beautiful_v02.glsl" title="Shader v02"></iframe></article>
-        <article class="card"><div class="label">v03</div><iframe src="/?embed=1&shaderFile=shaders/iterations/beautiful_v03.glsl" title="Shader v03"></iframe></article>
-        <article class="card"><div class="label">v04</div><iframe src="/?embed=1&shaderFile=shaders/iterations/beautiful_v04.glsl" title="Shader v04"></iframe></article>
-        <article class="card"><div class="label">v05</div><iframe src="/?embed=1&shaderFile=shaders/iterations/beautiful_v05.glsl" title="Shader v05"></iframe></article>
-        <article class="card"><div class="label">v06</div><iframe src="/?embed=1&shaderFile=shaders/iterations/beautiful_v06.glsl" title="Shader v06"></iframe></article>
-        <article class="card"><div class="label">v07</div><iframe src="/?embed=1&shaderFile=shaders/iterations/beautiful_v07.glsl" title="Shader v07"></iframe></article>
-        <article class="card"><div class="label">v08</div><iframe src="/?embed=1&shaderFile=shaders/iterations/beautiful_v08.glsl" title="Shader v08"></iframe></article>
-        <article class="card"><div class="label">v09</div><iframe src="/?embed=1&shaderFile=shaders/iterations/beautiful_v09.glsl" title="Shader v09"></iframe></article>
-        <article class="card"><div class="label">v10 (Final)</div><iframe src="/?embed=1&shaderFile=shaders/iterations/beautiful_v10.glsl" title="Shader v10"></iframe></article>
-      </section>
+      <div class="toolbar">
+        <label for="scaleSelect">Render Scale</label>
+        <select id="scaleSelect">
+          <option value="1">1.0x</option>
+          <option value="1.5">1.5x</option>
+          <option value="2" selected>2.0x</option>
+          <option value="3">3.0x</option>
+        </select>
+        <span class="hint">Higher scale = higher internal resolution (heavier GPU load).</span>
+      </div>
+
+      <section class="grid" id="grid"></section>
     </main>
+
+    <script>
+      const iterations = [
+        { id: 'v01', file: 'beautiful_v01.glsl', rationale: 'Started with warm/cool kaleidoscope to establish motion vocabulary and emotional color tension.' },
+        { id: 'v02', file: 'beautiful_v02.glsl', rationale: 'Pushed into crisp stained-glass geometry to test clarity and radial structure.' },
+        { id: 'v03', file: 'beautiful_v03.glsl', rationale: 'Pulled back toward atmospheric minimalism to test quietness and breathing room.' },
+        { id: 'v04', file: 'beautiful_v04.glsl', rationale: 'Introduced layered floral orbits for expressive rhythm and lyrical movement.' },
+        { id: 'v05', file: 'beautiful_v05.glsl', rationale: 'Explored nocturne simplicity (moon + reflection) to benchmark restraint.' },
+        { id: 'v06', file: 'beautiful_v06.glsl', rationale: 'Tested sparse contour lines and dim glow; elegant, but ultimately too subdued.' },
+        { id: 'v07', file: 'beautiful_v07.glsl', rationale: 'Raised brightness and kinetic energy with a clean spiral disc composition.' },
+        { id: 'v08', file: 'beautiful_v08.glsl', rationale: 'Added strong radial instrumentation and spark accents for ceremonial drama.' },
+        { id: 'v09', file: 'beautiful_v09.glsl', rationale: 'Shifted to turbulent painterly flow-fields; this unlocked the richest texture.' },
+        { id: 'v10 (Final)', file: 'beautiful_v10.glsl', rationale: 'Refined v09 with cleaner focal spokes and better balance between chaos and intention.' },
+      ];
+
+      const grid = document.getElementById('grid');
+      const scaleSelect = document.getElementById('scaleSelect');
+
+      function buildSrc(file, scale) {
+        return `/?embed=1&renderScale=${encodeURIComponent(scale)}&shaderFile=${encodeURIComponent(`shaders/iterations/${file}`)}`;
+      }
+
+      function renderCards(scale) {
+        grid.innerHTML = '';
+
+        for (const item of iterations) {
+          const card = document.createElement('article');
+          card.className = 'card';
+
+          const label = document.createElement('div');
+          label.className = 'label';
+          label.textContent = item.id;
+
+          const frame = document.createElement('iframe');
+          frame.title = `Shader ${item.id}`;
+          frame.src = buildSrc(item.file, scale);
+
+          const note = document.createElement('p');
+          note.className = 'rationale';
+          note.textContent = item.rationale;
+
+          card.appendChild(label);
+          card.appendChild(frame);
+          card.appendChild(note);
+          grid.appendChild(card);
+        }
+      }
+
+      const initialScale = new URLSearchParams(window.location.search).get('renderScale') || '2';
+      if (['1', '1.5', '2', '3'].includes(initialScale)) {
+        scaleSelect.value = initialScale;
+      }
+
+      scaleSelect.addEventListener('change', () => {
+        renderCards(scaleSelect.value);
+      });
+
+      renderCards(scaleSelect.value);
+    </script>
   </body>
 </html>
