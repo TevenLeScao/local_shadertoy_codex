@@ -30,6 +30,7 @@ void main() {
 const params = new URLSearchParams(window.location.search);
 const shaderFileParam = params.get('shaderFile');
 const isFileMode = Boolean(shaderFileParam);
+const isEmbedMode = params.get('embed') === '1';
 
 function normalizeShaderPath(path) {
   if (!path) {
@@ -56,6 +57,10 @@ const saveBtn = document.getElementById('saveBtn');
 const restoreBtn = document.getElementById('restoreBtn');
 const stats = document.getElementById('stats');
 const hint = document.querySelector('.hint');
+
+if (isEmbedMode) {
+  document.body.classList.add('embed-mode');
+}
 
 const gl = canvas.getContext('webgl2', {
   antialias: false,
@@ -221,6 +226,9 @@ function resizeCanvasToDisplaySize() {
 }
 
 function updateStats(timeSec, deltaSec) {
+  if (isEmbedMode) {
+    return;
+  }
   stats.textContent = `Frame ${runtime.frame} | Time ${timeSec.toFixed(2)}s | dt ${(deltaSec * 1000).toFixed(1)}ms`;
 }
 

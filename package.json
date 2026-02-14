@@ -6,7 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && mkdir -p dist/shaders && cp -R shaders/* dist/shaders/",
     "preview": "vite preview",
     "test:stress": "start-server-and-test 'vite preview --host 127.0.0.1 --port 4173' http://127.0.0.1:4173 'node tests/stress.mjs'",
     "dev:file": "vite --host 127.0.0.1 --port 5173",

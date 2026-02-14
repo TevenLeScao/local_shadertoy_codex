@@ -104,3 +104,11 @@ Optional env vars:
 - `SHADER_SEQUENCE_FRAMES` (default `6`)
 - `SHADER_SEQUENCE_SPAN_MS` (default `900`)
 - `SHADER_VIEWPORT` (default `1920x1080`)
+
+## Chronological Iteration Display
+
+Run all beauty iterations side by side (live):
+
+```text
+http://127.0.0.1:5173/timeline.html
+```
