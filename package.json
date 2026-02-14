@@ -8,7 +8,9 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test:stress": "start-server-and-test 'vite preview --host 127.0.0.1 --port 4173' http://127.0.0.1:4173 'node tests/stress.mjs'"
+    "test:stress": "start-server-and-test 'vite preview --host 127.0.0.1 --port 4173' http://127.0.0.1:4173 'node tests/stress.mjs'",
+    "dev:file": "vite --host 127.0.0.1 --port 5173",
+    "watch:shader": "node scripts/watch-shader-screenshots.mjs"
   },
   "repository": {
     "type": "git",

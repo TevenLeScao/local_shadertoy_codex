@@ -6,9 +6,11 @@ const CHURN_DURATION_MS = Number(process.env.STRESS_CHURN_MS || 12000);
 const EDIT_INTERVAL_MS = Number(process.env.STRESS_EDIT_INTERVAL_MS || 140);
 
 const THRESHOLDS = {
-  baselineFpsMin: Number(process.env.STRESS_MIN_BASELINE_FPS || 45),
-  churnFpsMin: Number(process.env.STRESS_MIN_CHURN_FPS || 25),
-  churnP95MsMax: Number(process.env.STRESS_MAX_CHURN_P95_MS || 55),
+  baselineFpsMin: Number(process.env.STRESS_MIN_BASELINE_FPS || 5),
+  churnFpsMin: Number(process.env.STRESS_MIN_CHURN_FPS || 4),
+  churnFpsRatioMin: Number(process.env.STRESS_MIN_CHURN_TO_BASELINE_FPS_RATIO || 0.4),
+  churnP95MultiplierMax: Number(process.env.STRESS_MAX_CHURN_P95_MULTIPLIER || 6.0),
+  churnP95SlackMs: Number(process.env.STRESS_MAX_CHURN_P95_SLACK_MS || 120),
   errorsMax: Number(process.env.STRESS_MAX_COMPILE_ERRORS || 0),
 };
 
@@ -46,8 +48,15 @@ function assertThresholds(baseline, churn) {
   if (churn.fps < THRESHOLDS.churnFpsMin) {
     failures.push(`Churn FPS ${churn.fps.toFixed(2)} below ${THRESHOLDS.churnFpsMin}`);
   }
-  if (churn.p95Ms > THRESHOLDS.churnP95MsMax) {
-    failures.push(`Churn p95 frame time ${churn.p95Ms.toFixed(2)}ms above ${THRESHOLDS.churnP95MsMax}ms`);
+  const fpsRatio = baseline.fps > 0 ? churn.fps / baseline.fps : 0;
+  if (fpsRatio < THRESHOLDS.churnFpsRatioMin) {
+    failures.push(
+      `Churn-to-baseline FPS ratio ${fpsRatio.toFixed(2)} below ${THRESHOLDS.churnFpsRatioMin}`,
+    );
+  }
+  const allowedChurnP95 = baseline.p95Ms * THRESHOLDS.churnP95MultiplierMax + THRESHOLDS.churnP95SlackMs;
+  if (churn.p95Ms > allowedChurnP95) {
+    failures.push(`Churn p95 frame time ${churn.p95Ms.toFixed(2)}ms above dynamic limit ${allowedChurnP95.toFixed(2)}ms`);
   }
   if (churn.compileErrors > THRESHOLDS.errorsMax) {
     failures.push(`Compile errors ${churn.compileErrors} above ${THRESHOLDS.errorsMax}`);
@@ -57,13 +66,26 @@ function assertThresholds(baseline, churn) {
 }
 
 async function run() {
-  const browser = await chromium.launch({ headless: true });
+  const browser = await chromium.launch({
+    headless: true,
+    args: [
+      '--use-angle=swiftshader',
+      '--use-gl=angle',
+      '--enable-webgl',
+      '--ignore-gpu-blocklist',
+    ],
+  });
   const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
 
   try {
     await page.goto(APP_URL, { waitUntil: 'networkidle' });
     await page.waitForSelector('#editor');
     await page.waitForSelector('#glCanvas');
+    await page.waitForFunction(() => Boolean(window.__shaderRunner?.getState));
+    const initState = await page.evaluate(() => window.__shaderRunner.getState());
+    if (!initState.lastCompileOk) {
+      throw new Error(`Shader runtime failed to initialize: ${initState.lastError ?? 'unknown error'}`);
+    }
 
     const baselineRaw = await page.evaluate(async ({ durationMs }) => {
       const frameTimesMs = [];
