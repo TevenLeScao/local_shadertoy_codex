@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Local Shadertoy</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Chivo:wght@400;700&family=JetBrains+Mono:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div class="app">
+      <aside class="editor-pane">
+        <div class="toolbar">
+          <h1>Local GLSL Playground</h1>
+          <div class="actions">
+            <button id="pauseBtn" type="button">Pause</button>
+            <button id="resetBtn" type="button">Reset Time</button>
+            <button id="saveBtn" type="button">Save</button>
+            <button id="restoreBtn" type="button">Restore</button>
+          </div>
+        </div>
+        <p class="hint">Write a fragment shader using <code>mainImage(out vec4 fragColor, in vec2 fragCoord)</code>.</p>
+        <textarea id="editor" spellcheck="false" aria-label="Shader editor"></textarea>
+        <pre id="errors" class="errors hidden"></pre>
+      </aside>
+
+      <main class="preview-pane">
+        <canvas id="glCanvas"></canvas>
+        <div class="stats" id="stats"></div>
+      </main>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
