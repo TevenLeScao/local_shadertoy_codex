@@ -81,6 +81,12 @@ Implementation paths:
 - shader live updates: `WS /ws/dev-shader`
 - terminal stream: `WS /ws/terminal`
 
+Quick terminal verification:
+
+```bash
+TERM_CHECK_PORT=5173 npm run test:terminal
+```
+
 ## Stress Test
 
 Run an automated headless stress test that measures frame-time stability during rapid shader recompilation:

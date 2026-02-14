@@ -111,19 +111,20 @@ shaderWss.on('connection', (ws) => {
 });
 
 terminalWss.on('connection', (ws) => {
+  const envShell = process.env.SHELL;
   const candidates = [
-    process.env.SHELL,
-    '/bin/zsh',
-    '/bin/bash',
-    'bash',
-    'sh',
+    envShell ? { shell: envShell, args: ['-i'] } : null,
+    { shell: '/bin/zsh', args: ['-i'] },
+    { shell: '/bin/bash', args: ['-i'] },
+    { shell: 'bash', args: ['-i'] },
+    { shell: 'sh', args: ['-i'] },
   ].filter(Boolean);
 
   let term = null;
   let spawnError = null;
-  for (const shell of candidates) {
+  for (const candidate of candidates) {
     try {
-      term = pty.spawn(shell, ['-l'], {
+      term = pty.spawn(candidate.shell, candidate.args, {
         name: 'xterm-color',
         cols: 110,
         rows: 28,
@@ -137,14 +138,14 @@ terminalWss.on('connection', (ws) => {
   }
 
   if (!term) {
-    const shell = candidates[0] || 'sh';
-    const child = spawn(shell, ['-l'], {
+    const candidate = candidates[0] || { shell: 'sh', args: ['-i'] };
+    const child = spawn(candidate.shell, candidate.args, {
       cwd,
       env: process.env,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
 
-    ws.send(JSON.stringify({ type: 'data', data: `\\r\\n[terminal] PTY unavailable, using pipe shell (${shell}).\\r\\n` }));
+    ws.send(JSON.stringify({ type: 'data', data: `\\r\\n[terminal] PTY unavailable, using pipe shell (${candidate.shell} ${candidate.args.join(' ')}).\\r\\n` }));
     if (spawnError) {
       ws.send(JSON.stringify({ type: 'data', data: `[terminal] PTY error: ${String(spawnError.message || spawnError)}\\r\\n` }));
     }
@@ -157,6 +158,19 @@ terminalWss.on('connection', (ws) => {
     child.stderr.on('data', (chunk) => {
       if (ws.readyState === 1) {
         ws.send(JSON.stringify({ type: 'data', data: chunk.toString('utf8') }));
+      }
+    });
+
+    child.on('error', (err) => {
+      if (ws.readyState === 1) {
+        ws.send(JSON.stringify({ type: 'data', data: `[terminal] shell error: ${String(err.message || err)}\\r\\n` }));
+        ws.close();
+      }
+    });
+    child.on('exit', (code) => {
+      if (ws.readyState === 1) {
+        ws.send(JSON.stringify({ type: 'data', data: `\\r\\n[terminal] shell exited (${code ?? 'unknown'}).\\r\\n` }));
+        ws.close();
       }
     });
 
