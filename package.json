@@ -1,0 +1,30 @@
+{
+  "name": "local_shadertoy_codex",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test:stress": "start-server-and-test 'vite preview --host 127.0.0.1 --port 4173' http://127.0.0.1:4173 'node tests/stress.mjs'"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TevenLeScao/local_shadertoy_codex.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/TevenLeScao/local_shadertoy_codex/issues"
+  },
+  "homepage": "https://github.com/TevenLeScao/local_shadertoy_codex#readme",
+  "devDependencies": {
+    "playwright": "^1.58.2",
+    "start-server-and-test": "^2.1.3",
+    "vite": "^7.3.1"
+  }
+}
