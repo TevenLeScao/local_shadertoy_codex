@@ -81,6 +81,7 @@ Open:
 
 - `http://127.0.0.1:5173/?shaderFile=shaders/default.glsl`
 - `http://127.0.0.1:5173/?shaderFile=shaders/plasma.glsl`
+- Add `&renderScale=2` (or `3`) for higher internal render resolution when needed.
 
 When `shaderFile` mode is active, the app polls the file and recompiles automatically when it changes.
 
@@ -104,15 +105,3 @@ Optional env vars:
 - `SHADER_SEQUENCE_FRAMES` (default `6`)
 - `SHADER_SEQUENCE_SPAN_MS` (default `900`)
 - `SHADER_VIEWPORT` (default `1920x1080`)
-
-## Chronological Iteration Display
-
-Run all beauty iterations side by side (live):
-
-```text
-http://127.0.0.1:5173/timeline.html
-```
-
-Optional:
-- add `?renderScale=1|1.5|2|3` to control internal rendering resolution
-- or use the `Render Scale` selector at the top of `timeline.html`
