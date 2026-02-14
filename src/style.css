@@ -83,6 +83,13 @@ button:hover {
   font-size: 0.86rem;
 }
 
+.prod-status {
+  margin: 0;
+  color: #c3d8ea;
+  font-size: 0.77rem;
+  min-height: 1.1rem;
+}
+
 code {
   font-family: "JetBrains Mono", monospace;
   font-size: 0.8rem;
@@ -183,4 +190,19 @@ body.embed-mode #glCanvas {
 
 body.embed-mode .stats {
   display: none;
+}
+
+body.prod-mode .app {
+  grid-template-columns: 1fr;
+  min-height: 100vh;
+}
+
+body.prod-mode .editor-pane {
+  display: none;
+}
+
+body.prod-mode .preview-pane,
+body.prod-mode #glCanvas {
+  min-height: 100vh;
+  height: 100vh;
 }
