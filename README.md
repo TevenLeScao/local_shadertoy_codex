@@ -101,4 +101,6 @@ Optional env vars:
 - `SHADER_FILE` (default `shaders/default.glsl`)
 - `SHADER_SHOTS_DIR` (default `shots`)
 - `SHADER_SETTLE_MS` (default `450`)
+- `SHADER_SEQUENCE_FRAMES` (default `6`)
+- `SHADER_SEQUENCE_SPAN_MS` (default `900`)
 - `SHADER_VIEWPORT` (default `1920x1080`)
