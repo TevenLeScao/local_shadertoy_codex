@@ -165,3 +165,22 @@ code {
     height: 58vh;
   }
 }
+
+body.embed-mode .app {
+  grid-template-columns: 1fr;
+  min-height: 100vh;
+}
+
+body.embed-mode .editor-pane {
+  display: none;
+}
+
+body.embed-mode .preview-pane,
+body.embed-mode #glCanvas {
+  min-height: 100vh;
+  height: 100vh;
+}
+
+body.embed-mode .stats {
+  display: none;
+}

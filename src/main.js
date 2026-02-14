@@ -30,6 +30,9 @@ void main() {
 const params = new URLSearchParams(window.location.search);
 const shaderFileParam = params.get('shaderFile');
 const isFileMode = Boolean(shaderFileParam);
+const isEmbedMode = params.get('embed') === '1';
+const renderScaleParam = Number(params.get('renderScale') || '1');
+const renderScale = Number.isFinite(renderScaleParam) ? Math.min(Math.max(renderScaleParam, 0.5), 4.0) : 1.0;
 
 function normalizeShaderPath(path) {
   if (!path) {
@@ -56,6 +59,10 @@ const saveBtn = document.getElementById('saveBtn');
 const restoreBtn = document.getElementById('restoreBtn');
 const stats = document.getElementById('stats');
 const hint = document.querySelector('.hint');
+
+if (isEmbedMode) {
+  document.body.classList.add('embed-mode');
+}
 
 const gl = canvas.getContext('webgl2', {
   antialias: false,
@@ -208,7 +215,7 @@ function scheduleCompile() {
 }
 
 function resizeCanvasToDisplaySize() {
-  const dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
+  const dpr = Math.max(1, Math.min((window.devicePixelRatio || 1) * renderScale, 4));
   const displayWidth = Math.floor(canvas.clientWidth * dpr);
   const displayHeight = Math.floor(canvas.clientHeight * dpr);
 
@@ -221,6 +228,9 @@ function resizeCanvasToDisplaySize() {
 }
 
 function updateStats(timeSec, deltaSec) {
+  if (isEmbedMode) {
+    return;
+  }
   stats.textContent = `Frame ${runtime.frame} | Time ${timeSec.toFixed(2)}s | dt ${(deltaSec * 1000).toFixed(1)}ms`;
 }
 

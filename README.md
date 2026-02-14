@@ -81,6 +81,7 @@ Open:
 
 - `http://127.0.0.1:5173/?shaderFile=shaders/default.glsl`
 - `http://127.0.0.1:5173/?shaderFile=shaders/plasma.glsl`
+- Add `&renderScale=2` (or `3`) for higher internal render resolution when needed.
 
 When `shaderFile` mode is active, the app polls the file and recompiles automatically when it changes.
 
