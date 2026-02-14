@@ -31,6 +31,8 @@ npm run dev
 
 3. Open the URL printed by Vite (typically `http://localhost:5173`).
 
+`npm run dev` now starts the Studio server (Vite + terminal/shader-sync backend).
+
 ## Shader Format
 
 Write fragment code with this function signature:
@@ -63,6 +65,21 @@ http://127.0.0.1:5173/?role=prod&session=myshow
 Notes:
 - `session` isolates channels so multiple setups can run in parallel.
 - Add `renderScale=2` or `renderScale=3` on either URL for higher internal rendering resolution.
+
+## In-App Terminal (Claude/Codex Compatible)
+
+The dev window includes an integrated shell terminal (`Agent Terminal`) backed by PTY/WebSocket.
+
+What it does:
+- run local CLI tools inside the app window (including Codex/Claude CLIs)
+- sync shader source through `shaders/dev_live.glsl`
+- edits made from terminal-side tools update the dev editor/preview in real time
+- prod window remains unchanged until you click `Push To Prod`
+
+Implementation paths:
+- shader sync API: `GET/PUT /api/dev-shader`
+- shader live updates: `WS /ws/dev-shader`
+- terminal stream: `WS /ws/terminal`
 
 ## Stress Test
 
