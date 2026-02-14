@@ -138,14 +138,43 @@ terminalWss.on('connection', (ws) => {
   }
 
   if (!term) {
-    const candidate = candidates[0] || { shell: 'sh', args: ['-i'] };
-    const child = spawn(candidate.shell, candidate.args, {
+    const fallbackCandidates = [
+      { shell: '/bin/sh', args: ['-s'] },
+      { shell: 'sh', args: ['-s'] },
+      { shell: '/bin/bash', args: ['--noprofile', '--norc'] },
+      { shell: 'bash', args: ['--noprofile', '--norc'] },
+    ];
+
+    let fallback = null;
+    let fallbackErr = spawnError;
+    for (const candidate of fallbackCandidates) {
+      try {
+        const probe = spawn(candidate.shell, ['-c', 'echo'], {
+          cwd,
+          env: process.env,
+          stdio: ['ignore', 'ignore', 'ignore'],
+        });
+        probe.kill('SIGTERM');
+        fallback = candidate;
+        break;
+      } catch (err) {
+        fallbackErr = err;
+      }
+    }
+
+    if (!fallback) {
+      ws.send(JSON.stringify({ type: 'data', data: `\\r\\n[terminal] failed to start fallback shell: ${String(fallbackErr?.message || fallbackErr)}\\r\\n` }));
+      ws.close();
+      return;
+    }
+
+    const child = spawn(fallback.shell, fallback.args, {
       cwd,
       env: process.env,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
 
-    ws.send(JSON.stringify({ type: 'data', data: `\\r\\n[terminal] PTY unavailable, using pipe shell (${candidate.shell} ${candidate.args.join(' ')}).\\r\\n` }));
+    ws.send(JSON.stringify({ type: 'data', data: `\\r\\n[terminal] PTY unavailable, using pipe shell (${fallback.shell} ${fallback.args.join(' ')}).\\r\\n` }));
     if (spawnError) {
       ws.send(JSON.stringify({ type: 'data', data: `[terminal] PTY error: ${String(spawnError.message || spawnError)}\\r\\n` }));
     }

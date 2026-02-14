@@ -87,6 +87,12 @@ Quick terminal verification:
 TERM_CHECK_PORT=5173 npm run test:terminal
 ```
 
+End-to-end terminal smoke test (starts server + validates output marker):
+
+```bash
+npm run test:terminal:smoke
+```
+
 ## Stress Test
 
 Run an automated headless stress test that measures frame-time stability during rapid shader recompilation:

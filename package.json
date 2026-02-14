@@ -12,7 +12,8 @@
     "dev:file": "node server/studio-server.mjs",
     "watch:shader": "node scripts/watch-shader-screenshots.mjs",
     "dev:vite": "vite",
-    "test:terminal": "node scripts/check-terminal-ws.mjs"
+    "test:terminal": "node scripts/check-terminal-ws.mjs",
+    "test:terminal:smoke": "start-server-and-test 'HOST=127.0.0.1 PORT=5173 npm run dev' http://127.0.0.1:5173 'TERM_CHECK_PORT=5173 npm run test:terminal'"
   },
   "repository": {
     "type": "git",
