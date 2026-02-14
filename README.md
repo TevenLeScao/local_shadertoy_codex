@@ -41,6 +41,29 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
 
 The app wraps your code into a WebGL2 fragment shader entry point.
 
+## Dev/Prod Split Display
+
+Use one window for editing (`dev`) and a second window for projection (`prod`):
+
+1. Open dev:
+
+```text
+http://127.0.0.1:5173/?session=myshow
+```
+
+2. In dev, click `Open Prod Window` to open:
+
+```text
+http://127.0.0.1:5173/?role=prod&session=myshow
+```
+
+3. Keep iterating in dev. The prod window does **not** change automatically.
+4. Click `Push To Prod` in dev to deploy current shader to prod.
+
+Notes:
+- `session` isolates channels so multiple setups can run in parallel.
+- Add `renderScale=2` or `renderScale=3` on either URL for higher internal rendering resolution.
+
 ## Stress Test
 
 Run an automated headless stress test that measures frame-time stability during rapid shader recompilation:

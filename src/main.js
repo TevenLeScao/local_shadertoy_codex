@@ -31,8 +31,13 @@ const params = new URLSearchParams(window.location.search);
 const shaderFileParam = params.get('shaderFile');
 const isFileMode = Boolean(shaderFileParam);
 const isEmbedMode = params.get('embed') === '1';
+const isProdMode = params.get('role') === 'prod';
 const renderScaleParam = Number(params.get('renderScale') || '1');
 const renderScale = Number.isFinite(renderScaleParam) ? Math.min(Math.max(renderScaleParam, 0.5), 4.0) : 1.0;
+const sessionParam = params.get('session') || 'default';
+const session = /^[-_a-zA-Z0-9]+$/.test(sessionParam) ? sessionParam : 'default';
+const PROD_STORAGE_KEY = `local-shadertoy-prod-source-${session}`;
+const PROD_CHANNEL = `local-shadertoy-prod-channel-${session}`;
 
 function normalizeShaderPath(path) {
   if (!path) {
@@ -57,11 +62,17 @@ const pauseBtn = document.getElementById('pauseBtn');
 const resetBtn = document.getElementById('resetBtn');
 const saveBtn = document.getElementById('saveBtn');
 const restoreBtn = document.getElementById('restoreBtn');
+const openProdBtn = document.getElementById('openProdBtn');
+const pushProdBtn = document.getElementById('pushProdBtn');
+const prodStatus = document.getElementById('prodStatus');
 const stats = document.getElementById('stats');
 const hint = document.querySelector('.hint');
 
 if (isEmbedMode) {
   document.body.classList.add('embed-mode');
+}
+if (isProdMode) {
+  document.body.classList.add('prod-mode');
 }
 
 const gl = canvas.getContext('webgl2', {
@@ -93,7 +104,10 @@ let runtime = {
   lastCompileOk: false,
   lastError: null,
   lastLoadedShaderPath: shaderFilePath,
+  session,
 };
+
+const prodChannel = !isFileMode && ('BroadcastChannel' in window) ? new BroadcastChannel(PROD_CHANNEL) : null;
 
 const fullscreenTriangle = gl.createBuffer();
 gl.bindBuffer(gl.ARRAY_BUFFER, fullscreenTriangle);
@@ -183,6 +197,12 @@ function clearError() {
   runtime.lastError = null;
   errors.textContent = '';
   errors.classList.add('hidden');
+}
+
+function setProdStatus(message) {
+  if (prodStatus) {
+    prodStatus.textContent = message;
+  }
 }
 
 function installProgram(source) {
@@ -303,6 +323,10 @@ function setupPointerHandlers() {
 }
 
 function setupControls() {
+  if (isProdMode) {
+    return;
+  }
+
   editor.addEventListener('input', () => {
     if (!isFileMode) {
       scheduleCompile();
@@ -336,6 +360,91 @@ function setupControls() {
       localStorage.setItem(STORAGE_KEY, editor.value);
     }
   });
+}
+
+function openProdWindow() {
+  const url = new URL(window.location.href);
+  url.searchParams.delete('shaderFile');
+  url.searchParams.delete('embed');
+  url.searchParams.set('role', 'prod');
+  url.searchParams.set('session', session);
+  if (!url.searchParams.has('renderScale')) {
+    url.searchParams.set('renderScale', String(renderScale));
+  }
+  window.open(url.toString(), '_blank', 'noopener,noreferrer');
+}
+
+function pushToProd() {
+  if (isProdMode || isFileMode) {
+    return;
+  }
+
+  if (!runtime.lastCompileOk) {
+    setProdStatus('Cannot push: fix shader errors first.');
+    return;
+  }
+
+  const payload = {
+    type: 'deploy',
+    source: editor.value,
+    sentAt: Date.now(),
+    session,
+  };
+
+  localStorage.setItem(PROD_STORAGE_KEY, payload.source);
+  prodChannel?.postMessage(payload);
+  setProdStatus(`Pushed to prod session "${session}" at ${new Date(payload.sentAt).toLocaleTimeString()}.`);
+}
+
+function setupProdDeploymentControls() {
+  if (isProdMode || isFileMode) {
+    if (openProdBtn) openProdBtn.disabled = true;
+    if (pushProdBtn) pushProdBtn.disabled = true;
+    setProdStatus(isProdMode ? `Prod mode (session "${session}")` : '');
+    return;
+  }
+
+  if (openProdBtn) {
+    openProdBtn.addEventListener('click', openProdWindow);
+  }
+  if (pushProdBtn) {
+    pushProdBtn.addEventListener('click', pushToProd);
+  }
+
+  setProdStatus(`Dev mode on session "${session}". Prod updates only when you click Push To Prod.`);
+}
+
+function applyProdSource(source) {
+  try {
+    editor.value = source;
+    installProgram(source);
+  } catch (err) {
+    showError(err);
+  }
+}
+
+function setupProdMode() {
+  hint.innerHTML = `Prod display session: <code>${session}</code> (updates only from dev push).`;
+  const initial = localStorage.getItem(PROD_STORAGE_KEY) || FALLBACK_SHADER;
+  applyProdSource(initial);
+
+  if (prodChannel) {
+    prodChannel.addEventListener('message', (event) => {
+      const data = event.data;
+      if (!data || data.type !== 'deploy' || typeof data.source !== 'string') {
+        return;
+      }
+      applyProdSource(data.source);
+    });
+  }
+
+  if (!prodChannel) {
+    window.addEventListener('storage', (event) => {
+      if (event.key === PROD_STORAGE_KEY && typeof event.newValue === 'string') {
+        applyProdSource(event.newValue);
+      }
+    });
+  }
 }
 
 async function setupFileMode() {
@@ -402,8 +511,11 @@ window.__shaderRunner = {
 
 setupPointerHandlers();
 setupControls();
+setupProdDeploymentControls();
 
-if (isFileMode) {
+if (isProdMode) {
+  setupProdMode();
+} else if (isFileMode) {
   setupFileMode();
 } else {
   setupInlineMode();

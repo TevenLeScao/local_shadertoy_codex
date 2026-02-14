@@ -17,6 +17,8 @@
         <div class="toolbar">
           <h1>Local GLSL Playground</h1>
           <div class="actions">
+            <button id="openProdBtn" type="button">Open Prod Window</button>
+            <button id="pushProdBtn" type="button">Push To Prod</button>
             <button id="pauseBtn" type="button">Pause</button>
             <button id="resetBtn" type="button">Reset Time</button>
             <button id="saveBtn" type="button">Save</button>
@@ -24,6 +26,7 @@
           </div>
         </div>
         <p class="hint">Write a fragment shader using <code>mainImage(out vec4 fragColor, in vec2 fragCoord)</code>.</p>
+        <p id="prodStatus" class="prod-status"></p>
         <textarea id="editor" spellcheck="false" aria-label="Shader editor"></textarea>
         <pre id="errors" class="errors hidden"></pre>
       </aside>
