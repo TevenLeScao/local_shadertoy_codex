@@ -8,6 +8,8 @@ const port = Number(process.env.SHADER_PORT || 5173);
 const shaderFile = process.env.SHADER_FILE || 'shaders/default.glsl';
 const outDir = process.env.SHADER_SHOTS_DIR || 'shots';
 const settleMs = Number(process.env.SHADER_SETTLE_MS || 450);
+const sequenceFrames = Number(process.env.SHADER_SEQUENCE_FRAMES || 6);
+const sequenceSpanMs = Number(process.env.SHADER_SEQUENCE_SPAN_MS || 900);
 const size = process.env.SHADER_VIEWPORT || '1920x1080';
 const [width, height] = size.split('x').map((v) => Number(v));
 
@@ -89,14 +91,25 @@ async function run() {
       await new Promise((r) => setTimeout(r, settleMs));
       const state = await page.evaluate(() => window.__shaderRunner.getState());
 
-      const file = `${path.basename(shaderFile, path.extname(shaderFile))}-${ts()}.png`;
-      const target = path.join(outDir, file);
-      await page.screenshot({ path: target });
+      const frames = Math.max(1, sequenceFrames);
+      const intervalMs = frames > 1 ? Math.max(1, Math.floor(sequenceSpanMs / (frames - 1))) : 0;
+      const stamp = ts();
+      const base = path.basename(shaderFile, path.extname(shaderFile));
+
+      for (let i = 0; i < frames; i++) {
+        const suffix = String(i + 1).padStart(2, '0');
+        const file = `${base}-${stamp}-${reason}-${suffix}.png`;
+        const target = path.join(outDir, file);
+        await page.screenshot({ path: target });
+        if (i < frames - 1) {
+          await page.waitForTimeout(intervalMs);
+        }
+      }
 
       if (state.lastCompileOk) {
-        log(`Captured (${reason}): ${target}`);
+        log(`Captured ${frames} frame(s) (${reason})`);
       } else {
-        log(`Captured with compile error (${reason}): ${target}`);
+        log(`Captured ${frames} frame(s) with compile error (${reason})`);
         log(`Compile error: ${state.lastError}`);
       }
     } finally {
