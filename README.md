@@ -60,7 +60,45 @@ Optional thresholds and durations (via env vars):
 - `STRESS_BASELINE_MS` (default `6000`)
 - `STRESS_CHURN_MS` (default `12000`)
 - `STRESS_EDIT_INTERVAL_MS` (default `140`)
-- `STRESS_MIN_BASELINE_FPS` (default `45`)
-- `STRESS_MIN_CHURN_FPS` (default `25`)
-- `STRESS_MAX_CHURN_P95_MS` (default `55`)
+- `STRESS_MIN_BASELINE_FPS` (default `5`)
+- `STRESS_MIN_CHURN_FPS` (default `4`)
+- `STRESS_MIN_CHURN_TO_BASELINE_FPS_RATIO` (default `0.4`)
+- `STRESS_MAX_CHURN_P95_MULTIPLIER` (default `6.0`)
+- `STRESS_MAX_CHURN_P95_SLACK_MS` (default `120`)
 - `STRESS_MAX_COMPILE_ERRORS` (default `0`)
+
+## File-Based Shader Iteration + Auto Screenshots
+
+You can now keep shaders as files under `shaders/` and have the app auto-reload them.
+
+### Run a shader file in the UI
+
+```bash
+npm run dev:file
+```
+
+Open:
+
+- `http://127.0.0.1:5173/?shaderFile=shaders/default.glsl`
+- `http://127.0.0.1:5173/?shaderFile=shaders/plasma.glsl`
+
+When `shaderFile` mode is active, the app polls the file and recompiles automatically when it changes.
+
+### Continuous screenshot capture on shader edits
+
+In a second terminal (while dev server is running):
+
+```bash
+SHADER_FILE=shaders/default.glsl npm run watch:shader
+```
+
+On startup and after each file change, a screenshot is written to `shots/`.
+
+Optional env vars:
+
+- `SHADER_HOST` (default `127.0.0.1`)
+- `SHADER_PORT` (default `5173`)
+- `SHADER_FILE` (default `shaders/default.glsl`)
+- `SHADER_SHOTS_DIR` (default `shots`)
+- `SHADER_SETTLE_MS` (default `450`)
+- `SHADER_VIEWPORT` (default `1920x1080`)

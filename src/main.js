@@ -2,8 +2,9 @@ import './style.css';
 
 const STORAGE_KEY = 'local-shadertoy-source';
 const COMPILE_DEBOUNCE_MS = 120;
+const FILE_POLL_MS = 250;
 
-const DEFAULT_SHADER = `void mainImage(out vec4 fragColor, in vec2 fragCoord)
+const FALLBACK_SHADER = `void mainImage(out vec4 fragColor, in vec2 fragCoord)
 {
     vec2 uv = (2.0 * fragCoord - iResolution.xy) / iResolution.y;
 
@@ -26,6 +27,26 @@ void main() {
     gl_Position = vec4(aPos, 0.0, 1.0);
 }`;
 
+const params = new URLSearchParams(window.location.search);
+const shaderFileParam = params.get('shaderFile');
+const isFileMode = Boolean(shaderFileParam);
+
+function normalizeShaderPath(path) {
+  if (!path) {
+    return null;
+  }
+
+  const cleaned = path.trim();
+  if (!/^[-_./a-zA-Z0-9]+$/.test(cleaned) || cleaned.startsWith('/') || cleaned.includes('..')) {
+    return null;
+  }
+
+  return cleaned;
+}
+
+const shaderFilePath = normalizeShaderPath(shaderFileParam);
+const shaderFileUrl = shaderFilePath ? `/${shaderFilePath}` : null;
+
 const editor = document.getElementById('editor');
 const canvas = document.getElementById('glCanvas');
 const errors = document.getElementById('errors');
@@ -34,6 +55,7 @@ const resetBtn = document.getElementById('resetBtn');
 const saveBtn = document.getElementById('saveBtn');
 const restoreBtn = document.getElementById('restoreBtn');
 const stats = document.getElementById('stats');
+const hint = document.querySelector('.hint');
 
 const gl = canvas.getContext('webgl2', {
   antialias: false,
@@ -51,7 +73,6 @@ let runtime = {
   uniforms: null,
   frame: 0,
   isPaused: false,
-  timeStart: performance.now(),
   prevNow: performance.now(),
   elapsedPause: 0,
   mouse: {
@@ -61,6 +82,10 @@ let runtime = {
     clickY: 0,
     down: false,
   },
+  compileVersion: 0,
+  lastCompileOk: false,
+  lastError: null,
+  lastLoadedShaderPath: shaderFilePath,
 };
 
 const fullscreenTriangle = gl.createBuffer();
@@ -140,11 +165,15 @@ function createProgram(fragmentSource) {
 }
 
 function showError(err) {
-  errors.textContent = String(err.message || err);
+  runtime.lastCompileOk = false;
+  runtime.lastError = String(err.message || err);
+  errors.textContent = runtime.lastError;
   errors.classList.remove('hidden');
 }
 
 function clearError() {
+  runtime.lastCompileOk = true;
+  runtime.lastError = null;
   errors.textContent = '';
   errors.classList.add('hidden');
 }
@@ -160,9 +189,9 @@ function installProgram(source) {
   runtime.program = next.program;
   runtime.uniforms = next.uniforms;
   runtime.frame = 0;
-  runtime.timeStart = performance.now();
   runtime.prevNow = performance.now();
   runtime.elapsedPause = 0;
+  runtime.compileVersion += 1;
   clearError();
 }
 
@@ -236,58 +265,138 @@ function setMouseFromEvent(event) {
   runtime.mouse.y = (event.clientY - rect.top) * (canvas.height / rect.height);
 }
 
-canvas.addEventListener('pointerdown', (event) => {
-  setMouseFromEvent(event);
-  runtime.mouse.down = true;
-  runtime.mouse.clickX = runtime.mouse.x;
-  runtime.mouse.clickY = runtime.mouse.y;
-});
-
-canvas.addEventListener('pointermove', (event) => {
-  setMouseFromEvent(event);
-});
-
-window.addEventListener('pointerup', () => {
-  runtime.mouse.down = false;
-});
-
-editor.value = localStorage.getItem(STORAGE_KEY) || DEFAULT_SHADER;
-editor.addEventListener('input', () => {
-  scheduleCompile();
-});
-
-saveBtn.addEventListener('click', () => {
-  localStorage.setItem(STORAGE_KEY, editor.value);
-});
-
-restoreBtn.addEventListener('click', () => {
-  editor.value = localStorage.getItem(STORAGE_KEY) || DEFAULT_SHADER;
-  scheduleCompile();
-});
-
-pauseBtn.addEventListener('click', () => {
-  runtime.isPaused = !runtime.isPaused;
-  pauseBtn.textContent = runtime.isPaused ? 'Resume' : 'Pause';
-  runtime.prevNow = performance.now();
-});
-
-resetBtn.addEventListener('click', () => {
-  runtime.frame = 0;
-  runtime.elapsedPause = 0;
-  runtime.prevNow = performance.now();
-});
-
-window.addEventListener('keydown', (event) => {
-  if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
-    event.preventDefault();
-    localStorage.setItem(STORAGE_KEY, editor.value);
+async function fetchShaderText(url) {
+  const cacheBusted = `${url}?t=${Date.now()}`;
+  const response = await fetch(cacheBusted, { cache: 'no-store' });
+  if (!response.ok) {
+    throw new Error(`Failed to load shader file: ${url} (${response.status})`);
   }
-});
 
-try {
-  installProgram(editor.value);
-} catch (err) {
-  showError(err);
+  return response.text();
+}
+
+function setupPointerHandlers() {
+  canvas.addEventListener('pointerdown', (event) => {
+    setMouseFromEvent(event);
+    runtime.mouse.down = true;
+    runtime.mouse.clickX = runtime.mouse.x;
+    runtime.mouse.clickY = runtime.mouse.y;
+  });
+
+  canvas.addEventListener('pointermove', (event) => {
+    setMouseFromEvent(event);
+  });
+
+  window.addEventListener('pointerup', () => {
+    runtime.mouse.down = false;
+  });
+}
+
+function setupControls() {
+  editor.addEventListener('input', () => {
+    if (!isFileMode) {
+      scheduleCompile();
+    }
+  });
+
+  saveBtn.addEventListener('click', () => {
+    localStorage.setItem(STORAGE_KEY, editor.value);
+  });
+
+  restoreBtn.addEventListener('click', () => {
+    editor.value = localStorage.getItem(STORAGE_KEY) || FALLBACK_SHADER;
+    scheduleCompile();
+  });
+
+  pauseBtn.addEventListener('click', () => {
+    runtime.isPaused = !runtime.isPaused;
+    pauseBtn.textContent = runtime.isPaused ? 'Resume' : 'Pause';
+    runtime.prevNow = performance.now();
+  });
+
+  resetBtn.addEventListener('click', () => {
+    runtime.frame = 0;
+    runtime.elapsedPause = 0;
+    runtime.prevNow = performance.now();
+  });
+
+  window.addEventListener('keydown', (event) => {
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
+      event.preventDefault();
+      localStorage.setItem(STORAGE_KEY, editor.value);
+    }
+  });
+}
+
+async function setupFileMode() {
+  if (!shaderFileUrl) {
+    showError('Invalid shaderFile query parameter. Use only letters, numbers, /, -, _, . and no .. segments.');
+    editor.value = FALLBACK_SHADER;
+    try {
+      installProgram(editor.value);
+    } catch (err) {
+      showError(err);
+    }
+    return;
+  }
+
+  hint.innerHTML = `File mode active: <code>${shaderFilePath}</code> (auto-refreshing from disk)`;
+  saveBtn.disabled = true;
+  restoreBtn.disabled = true;
+  saveBtn.title = 'Disabled in file mode';
+  restoreBtn.title = 'Disabled in file mode';
+
+  let lastSource = null;
+
+  const refreshFromFile = async () => {
+    try {
+      const text = await fetchShaderText(shaderFileUrl);
+      if (text !== lastSource) {
+        lastSource = text;
+        editor.value = text;
+        installProgram(text);
+      }
+    } catch (err) {
+      showError(err);
+    }
+  };
+
+  await refreshFromFile();
+  window.setInterval(() => {
+    refreshFromFile();
+  }, FILE_POLL_MS);
+}
+
+async function setupInlineMode() {
+  const initial = localStorage.getItem(STORAGE_KEY) || FALLBACK_SHADER;
+  editor.value = initial;
+  try {
+    installProgram(initial);
+  } catch (err) {
+    showError(err);
+  }
+}
+
+window.__shaderRunner = {
+  getState() {
+    return {
+      compileVersion: runtime.compileVersion,
+      lastCompileOk: runtime.lastCompileOk,
+      lastError: runtime.lastError,
+      shaderFilePath: runtime.lastLoadedShaderPath,
+      frame: runtime.frame,
+      isPaused: runtime.isPaused,
+    };
+  },
+};
+
+setupPointerHandlers();
+setupControls();
+
+if (isFileMode) {
+  setupFileMode();
+} else {
+  setupInlineMode();
 }
 
 requestAnimationFrame(renderLoop);
