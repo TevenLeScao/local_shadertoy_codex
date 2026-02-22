@@ -36,20 +36,26 @@ void panelPattern(in vec2 p, in float idx, in float t, inout vec3 col) {
     float dir = mix(-1.0, 1.0, step(0.5, fract(idx * 1.21)));
     float phaseBase = 6.2831853 * hash21(vec2(idx + 0.13, 1.91));
 
-    float w1 = baseSpeed + (hash21(vec2(idx + 0.31, 2.27)) - 0.5) * 0.06;
-    float w2 = baseSpeed + (hash21(vec2(idx + 0.47, 2.93)) - 0.5) * 0.06;
-    float w3 = baseSpeed + (hash21(vec2(idx + 0.59, 3.57)) - 0.5) * 0.06;
-    float w4 = baseSpeed + (hash21(vec2(idx + 0.71, 4.11)) - 0.5) * 0.06;
+    float w1 = baseSpeed + (hash21(vec2(idx + 0.31, 2.27)) - 0.5) * 0.05;
+    float w2 = baseSpeed + (hash21(vec2(idx + 0.47, 2.93)) - 0.5) * 0.05;
+    float w3 = baseSpeed + (hash21(vec2(idx + 0.59, 3.57)) - 0.5) * 0.05;
+    float w4 = baseSpeed + (hash21(vec2(idx + 0.71, 4.11)) - 0.5) * 0.05;
+    float w5 = baseSpeed + (hash21(vec2(idx + 0.83, 4.67)) - 0.5) * 0.05;
+    float w6 = baseSpeed + (hash21(vec2(idx + 0.97, 5.19)) - 0.5) * 0.05;
 
     vec2 q1 = rot(dir * w1 * t + phaseBase + 6.2831853 * hash21(vec2(idx + 0.89, 4.73))) * q;
     vec2 q2 = rot(dir * w2 * t + phaseBase + 6.2831853 * hash21(vec2(idx + 1.07, 5.41))) * q;
     vec2 q3 = rot(dir * w3 * t + phaseBase + 6.2831853 * hash21(vec2(idx + 1.29, 6.19))) * q;
     vec2 q4 = rot(dir * w4 * t + phaseBase + 6.2831853 * hash21(vec2(idx + 1.43, 6.83))) * q;
+    vec2 q5 = rot(dir * w5 * t + phaseBase + 6.2831853 * hash21(vec2(idx + 1.61, 7.37))) * q;
+    vec2 q6 = rot(dir * w6 * t + phaseBase + 6.2831853 * hash21(vec2(idx + 1.79, 7.91))) * q;
 
     float ring1 = squareRing(q1, 0.42, 0.07, 0.003);
-    float ring2 = squareRing(q2, 0.30, 0.06, 0.003);
-    float ring3 = squareRing(q3, 0.20, 0.05, 0.003);
-    float core = squareFill(q4, 0.08, 0.003);
+    float ring2 = squareRing(q2, 0.34, 0.055, 0.003);
+    float ring3 = squareRing(q3, 0.27, 0.05, 0.003);
+    float ring4 = squareRing(q4, 0.21, 0.045, 0.003);
+    float ring5 = squareRing(q5, 0.16, 0.035, 0.003);
+    float core = squareFill(q6, 0.085, 0.003);
 
     float parity = mod(idx, 2.0);
     vec3 ink = vec3(0.06);
@@ -58,11 +64,11 @@ void panelPattern(in vec2 p, in float idx, in float t, inout vec3 col) {
 
     col = mix(col, bg, squareFill(q, 0.455, 0.005));
 
-    float band = clamp(ring1 + ring2 + ring3 + core, 0.0, 1.0);
+    float band = clamp(ring1 + ring2 + ring3 + ring4 + ring5 + core, 0.0, 1.0);
     vec3 motif = mix(ink, paper, parity);
     col = mix(col, motif, band);
 
-    float speed = baseSpeed + (hash21(vec2(idx + 1.91, 7.37)) - 0.5) * 0.08;
+    float speed = baseSpeed + (hash21(vec2(idx + 1.91, 7.37)) - 0.5) * 0.06;
     float phaseInner = 6.2831853 * hash21(vec2(idx + 2.11, 8.03));
     vec2 inner = rot(dir * speed * t + phaseInner) * (q * 1.3);
 
