@@ -12,4 +12,5 @@
 - `beautiful_v10.glsl`: refined luminous vortex (selected final)
 - `checkerboard_v01.glsl`: strict monochrome 2x2 rotating checkerboard
 - `checkerboard_v02.glsl`: cinematic checkerboard with edge glows
-- `checkerboard_v03.glsl`: atmospheric checkerboard with soft aurora bloom (selected final)
+- `checkerboard_v03.glsl`: atmospheric checkerboard with soft aurora bloom
+- `checkerboard_v04.glsl`: Molnar-inspired concentric panel study with rotating inner squares (selected final)
