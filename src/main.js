@@ -1,8 +1,12 @@
 import './style.css';
+import '@xterm/xterm/css/xterm.css';
+import { Terminal } from '@xterm/xterm';
+import { FitAddon } from '@xterm/addon-fit';
 
 const STORAGE_KEY = 'local-shadertoy-source';
 const COMPILE_DEBOUNCE_MS = 120;
 const FILE_POLL_MS = 250;
+const API_WRITE_DEBOUNCE_MS = 180;
 
 const FALLBACK_SHADER = `void mainImage(out vec4 fragColor, in vec2 fragCoord)
 {
@@ -38,6 +42,9 @@ const sessionParam = params.get('session') || 'default';
 const session = /^[-_a-zA-Z0-9]+$/.test(sessionParam) ? sessionParam : 'default';
 const PROD_STORAGE_KEY = `local-shadertoy-prod-source-${session}`;
 const PROD_CHANNEL = `local-shadertoy-prod-channel-${session}`;
+const DEV_SHADER_API = '/api/dev-shader';
+const DEV_SHADER_WS = '/ws/dev-shader';
+const TERMINAL_WS = '/ws/terminal';
 
 function normalizeShaderPath(path) {
   if (!path) {
@@ -67,6 +74,9 @@ const pushProdBtn = document.getElementById('pushProdBtn');
 const prodStatus = document.getElementById('prodStatus');
 const stats = document.getElementById('stats');
 const hint = document.querySelector('.hint');
+const terminalPane = document.getElementById('terminalPane');
+const terminalHost = document.getElementById('terminalHost');
+const terminalStatus = document.getElementById('terminalStatus');
 
 if (isEmbedMode) {
   document.body.classList.add('embed-mode');
@@ -108,6 +118,10 @@ let runtime = {
 };
 
 const prodChannel = !isFileMode && ('BroadcastChannel' in window) ? new BroadcastChannel(PROD_CHANNEL) : null;
+const studioSync = {
+  enabled: false,
+  applyingRemote: false,
+};
 
 const fullscreenTriangle = gl.createBuffer();
 gl.bindBuffer(gl.ARRAY_BUFFER, fullscreenTriangle);
@@ -223,6 +237,7 @@ function installProgram(source) {
 }
 
 let compileTimer = null;
+let apiWriteTimer = null;
 function scheduleCompile() {
   clearTimeout(compileTimer);
   compileTimer = setTimeout(() => {
@@ -232,6 +247,27 @@ function scheduleCompile() {
       showError(err);
     }
   }, COMPILE_DEBOUNCE_MS);
+}
+
+function scheduleApiWrite(source) {
+  if (!studioSync.enabled || isProdMode || isFileMode) {
+    return;
+  }
+
+  clearTimeout(apiWriteTimer);
+  apiWriteTimer = setTimeout(async () => {
+    try {
+      await fetch(DEV_SHADER_API, {
+        method: 'PUT',
+        headers: {
+          'content-type': 'text/plain; charset=utf-8',
+        },
+        body: source,
+      });
+    } catch (_err) {
+      // best-effort write path
+    }
+  }, API_WRITE_DEBOUNCE_MS);
 }
 
 function resizeCanvasToDisplaySize() {
@@ -330,6 +366,9 @@ function setupControls() {
   editor.addEventListener('input', () => {
     if (!isFileMode) {
       scheduleCompile();
+      if (!studioSync.applyingRemote) {
+        scheduleApiWrite(editor.value);
+      }
     }
   });
 
@@ -447,6 +486,117 @@ function setupProdMode() {
   }
 }
 
+function studioSocketURL(pathname) {
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${protocol}//${window.location.host}${pathname}`;
+}
+
+async function setupStudioShaderSync() {
+  if (isProdMode || isFileMode) {
+    return false;
+  }
+
+  try {
+    const response = await fetch(DEV_SHADER_API, { cache: 'no-store' });
+    if (!response.ok) {
+      return false;
+    }
+
+    const source = await response.text();
+    if (source && source !== editor.value) {
+      editor.value = source;
+      installProgram(source);
+    }
+    studioSync.enabled = true;
+
+    const ws = new WebSocket(studioSocketURL(DEV_SHADER_WS));
+    ws.addEventListener('message', (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (!data || data.type !== 'source' || typeof data.source !== 'string') {
+          return;
+        }
+        if (data.source === editor.value) {
+          return;
+        }
+        studioSync.applyingRemote = true;
+        editor.value = data.source;
+        installProgram(data.source);
+      } catch (_err) {
+        // ignore malformed update packets
+      } finally {
+        studioSync.applyingRemote = false;
+      }
+    });
+    return true;
+  } catch (_err) {
+    return false;
+  }
+}
+
+function setupTerminal() {
+  if (isProdMode || isFileMode || !terminalPane || !terminalHost || !terminalStatus) {
+    if (terminalPane) {
+      terminalPane.style.display = 'none';
+    }
+    return;
+  }
+
+  const terminal = new Terminal({
+    cursorBlink: true,
+    fontFamily: 'JetBrains Mono, Menlo, monospace',
+    fontSize: 12,
+    theme: {
+      background: '#091624',
+      foreground: '#dcefff',
+      cursor: '#e7f4ff',
+      selectionBackground: '#2f4f70',
+    },
+  });
+  const fit = new FitAddon();
+  terminal.loadAddon(fit);
+  terminal.open(terminalHost);
+  fit.fit();
+
+  const ws = new WebSocket(studioSocketURL(TERMINAL_WS));
+  ws.addEventListener('open', () => {
+    terminalStatus.textContent = 'Connected';
+    ws.send(JSON.stringify({ type: 'resize', cols: terminal.cols, rows: terminal.rows }));
+  });
+  ws.addEventListener('close', () => {
+    terminalStatus.textContent = 'Disconnected';
+  });
+  ws.addEventListener('error', () => {
+    terminalStatus.textContent = 'Terminal unavailable';
+  });
+  ws.addEventListener('message', (event) => {
+    try {
+      const payload = JSON.parse(event.data);
+      if (payload.type === 'data' && typeof payload.data === 'string') {
+        terminal.write(payload.data);
+      }
+    } catch (_err) {
+      // ignore malformed frames
+    }
+  });
+
+  terminal.onData((data) => {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'input', data }));
+    }
+  });
+
+  const resize = () => {
+    fit.fit();
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'resize', cols: terminal.cols, rows: terminal.rows }));
+    }
+  };
+
+  window.addEventListener('resize', resize);
+  setTimeout(resize, 40);
+}
+
 async function setupFileMode() {
   if (!shaderFileUrl) {
     showError('Invalid shaderFile query parameter. Use only letters, numbers, /, -, _, . and no .. segments.');
@@ -487,6 +637,12 @@ async function setupFileMode() {
 }
 
 async function setupInlineMode() {
+  const fromStudio = await setupStudioShaderSync();
+  if (fromStudio) {
+    hint.innerHTML = `Studio mode active: <code>shaders/dev_live.glsl</code> is synced with editor + terminal.`;
+    return;
+  }
+
   const initial = localStorage.getItem(STORAGE_KEY) || FALLBACK_SHADER;
   editor.value = initial;
   try {
@@ -512,6 +668,7 @@ window.__shaderRunner = {
 setupPointerHandlers();
 setupControls();
 setupProdDeploymentControls();
+setupTerminal();
 
 if (isProdMode) {
   setupProdMode();
